@@ -1,32 +1,102 @@
-services:
-  catalogue:
-    build: ./catalogue
-    image: catalogue:v1
+version: '3.8'
 
-  user:
-    build: ./user
-    image: user:v1
+networks:
+  default:
+    external:
+      name: roboshop
 
-  cart:
-    build: ./cart
-    image: cart:v1
-
-  shipping:
-    build: ./shipping
-    image: shipping:v1
-
-  payment:
-    build: ./payment
-    image: payment:v1
-
+volumes:
   mongodb:
-    build: ./mongodb
+  redis:
+  mysql:
+  rabbitmq:
+
+services:
+  mongodb:
+    build: ./mongo
     image: mongodb:v1
+    container_name: mongodb
+    volumes:
+      - source: mongodb
+        target: /data/db
+        type: volume
 
   mysql:
     build: ./mysql
     image: mysql:v1
+    container_name: mysql
+    volumes:
+      - source: mysql
+        target: /var/lib/mysql
+        type: volume
+
+  catalogue:
+    build: ./catalogue
+    image: catalogue:v1
+    container_name: catalogue
+    depends_on:
+      - mongodb
+
+  user:
+    build: ./user
+    image: user:v1
+    container_name: user
+    depends_on:
+      - redis
+      - mongodb
+
+  cart:
+    build: ./cart
+    image: cart:v1
+    container_name: cart
+    depends_on:
+      - redis
+      - catalogue
+
+  shipping:
+    build: ./shipping
+    image: shipping:v1
+    container_name: shipping
+    depends_on:
+      - mysql
+
+  payment:
+    build: ./payments
+    image: payment:v1
+    container_name: payment
+    depends_on:
+      - rabbitmq
+      - user
+      - cart
 
   web:
     build: ./web
     image: web:v1
+    container_name: web
+    ports:
+      - "80:80"
+    depends_on:
+      - catalogue
+      - cart
+      - user
+      - shipping
+      - payment
+
+  redis:
+    image: redis
+    container_name: redis
+    volumes:
+      - source: redis
+        target: /data
+        type: volume
+
+  rabbitmq:
+    image: rabbitmq
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=roboshop
+      - RABBITMQ_DEFAULT_PASS=roboshop123
+    volumes:
+      - source: rabbitmq
+        target: /var/lib/rabbitmq
+        type: volume
